@@ -1,15 +1,25 @@
 # FUTO Keyboard (Remote-Whisper) — modified fork
 > [!NOTE]
 > **Modification notice** _(per the [FUTO Source First License 1.1](LICENSE.md), §Notices)_:
+>
 > This is a **modified version** of [FUTO Keyboard](https://github.com/futo-org/android-keyboard).
 > It adds a **configurable custom remote Whisper API endpoint**, enabling you
 > to use your **self-hosted**, OpenAI-compatible **Whisper server** for transcriptions.
+>
 > This is an **unofficial fork**, **not affiliated with or
 > endorsed by FUTO Holdings, Inc.**, and installs under a separate package id
 > (`io.github.v3djg6gl.futo.keyboard.remotewhisper`) so it coexists with the official app.
+> 
+> **Adds the INTERNET permission**:
+> Used solely by the optional **remote Whisper API endpoint** feature
+> to send audio to the user-configured transcription endpoint; it is unused unless you add
+> a remote Whisper API endpoint, and all other functionality remains fully offline.
+> 
 > "FUTO" is a trademark of FUTO Holdings, Inc.; the license grants no trademark rights and any such
 > use is subject to applicable law. The upstream license, copyright notices, and payment
 > functionality are retained unmodified.
+
+* * *
 
 The goal is to make a good modern keyboard that stays offline and doesn't spy on you. This keyboard is a fork of [LatinIME, The Android Open-Source Keyboard](https://android.googlesource.com/platform/packages/inputmethods/LatinIME), with significant changes made to it.
 
