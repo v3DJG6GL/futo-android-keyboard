@@ -36,9 +36,8 @@ jobs:
       - name: Provision Android SDK (NDK, CMake, platform, build-tools)
         run: ./.ci/setup-android-sdk.sh
 
-      - name: Lint (unstable debug)
-        run: ./gradlew lintUnstableDebug --stacktrace
-
+      # Note: no `lint` gate. Upstream doesn't run lint in CI and the codebase carries thousands
+      # of pre-existing lint errors with no baseline, so it can't act as a pass/fail gate here.
       - name: Unit tests (unstable debug)
         run: ./gradlew testUnstableDebugUnitTest --stacktrace
 

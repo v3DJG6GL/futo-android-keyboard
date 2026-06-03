@@ -2,4 +2,11 @@
     <issue id="UnsafeOptInUsageError">
         <option name="opt-in" value="kotlinx.serialization.InternalSerializationApi" />
     </issue>
+    <!--
+      AGP 8.10.1's bundled lint (kotlinx-metadata-jvm 2.0.0) cannot read Kotlin 2.1.0 class
+      metadata, so the Compose CoroutineCreationDuringComposition detector throws
+      "Provided Metadata instance has version 2.1.0, while maximum supported version is 2.0.0"
+      and aborts the whole lint run. Disable it until AGP/lint supports Kotlin 2.1 metadata.
+    -->
+    <issue id="CoroutineCreationDuringComposition" severity="ignore" />
 </lint>
