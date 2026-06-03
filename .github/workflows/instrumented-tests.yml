@@ -27,7 +27,15 @@ jobs:
           fetch-depth: 0
 
       - name: Init submodules (with retry/backoff)
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
+          if [ -n "$HF_TOKEN" ]; then
+            git config --global url."https://hf:${HF_TOKEN}@huggingface.co/".insteadOf "https://huggingface.co/"
+            echo "Configured authenticated huggingface.co access."
+          else
+            echo "::warning::No HF_TOKEN secret set — cloning the huggingface submodule anonymously (429-prone)."
+          fi
           tries=6
           for i in $(seq 1 $tries); do
             if git submodule update --init --recursive --force --jobs 4; then
