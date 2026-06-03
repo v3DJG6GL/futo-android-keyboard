@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -78,6 +79,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.role
@@ -722,15 +726,25 @@ fun NavigationItem(title: String, style: NavigationItemStyle, navigate: () -> Un
 }
 
 @Composable
-fun SettingTextField(title: String, placeholder: String, field: SettingsKey<String>) {
+fun SettingTextField(
+    title: String,
+    placeholder: String,
+    field: SettingsKey<String>,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    isPassword: Boolean = false
+) {
     val context = LocalContext.current
 
-    val personalDict = useDataStore(field)
+    val setting = useDataStore(field)
     val textFieldValue = remember { mutableStateOf(context.getSettingBlocking(
         field.key, field.default)) }
 
+    // For secret fields: reveal while the field is fresh (empty), mask once a value is saved.
+    // The trailing eye toggle flips this either way.
+    val revealed = remember { mutableStateOf(textFieldValue.value.isEmpty()) }
+
     LaunchedEffect(textFieldValue.value) {
-        personalDict.setValue(textFieldValue.value)
+        setting.setValue(textFieldValue.value)
     }
 
     ScreenTitle(title)
@@ -741,6 +755,31 @@ fun SettingTextField(title: String, placeholder: String, field: SettingsKey<Stri
             textFieldValue.value = it
         },
         placeholder = { Text(placeholder) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        visualTransformation = if (isPassword && !revealed.value) {
+            PasswordVisualTransformation()
+        } else {
+            VisualTransformation.None
+        },
+        trailingIcon = if (isPassword) {
+            {
+                IconButton(onClick = { revealed.value = !revealed.value }) {
+                    Icon(
+                        painterResource(
+                            if (revealed.value) R.drawable.eye_off else R.drawable.eye
+                        ),
+                        contentDescription = stringResource(
+                            if (revealed.value) {
+                                R.string.voice_input_settings_hide_api_key
+                            } else {
+                                R.string.voice_input_settings_show_api_key
+                            }
+                        )
+                    )
+                }
+            }
+        } else null,
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp, 4.dp),

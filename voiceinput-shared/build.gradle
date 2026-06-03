@@ -97,4 +97,7 @@ dependencies {
     implementation(name:'vad-release', ext:'aar')
 
     implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1'
+
+    // Networking for the custom (remote) Whisper API backend
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
 }

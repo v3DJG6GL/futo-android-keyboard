@@ -335,6 +335,13 @@
     <string name="language_settings_resource_revert_to_default_button">Revert to Default</string>
     <string name="language_settings_resource_remove_button">Remove</string>
     <string name="language_settings_resource_explore_online_button">Explore</string>
+    <string name="language_settings_resource_use_custom_server_button">Use custom server</string>
+    <string name="language_settings_resource_configure_server_button">Configure server</string>
+    <string name="language_settings_resource_use_local_model_button">Use a local model</string>
+    <string name="language_settings_resource_disable_custom_server_button">Disable custom server</string>
+    <string name="language_settings_resource_cancel_button">Cancel</string>
+    <string name="language_settings_resource_voice_input_none">No custom voice input model is set for this language. You can import one from a file, use a custom Whisper server, or explore downloads online.</string>
+    <string name="language_settings_resource_voice_input_remote_selected">This language uses the custom Whisper server for voice input. You can configure the server, switch to a local model, or disable the custom server.</string>
 
     <string name="language_settings_remove_language_title">Delete %1$s?</string>
     <string name="language_settings_remove_language_body">Remove %1$s, all of its associated layouts and custom resources?</string>
@@ -582,6 +589,23 @@
     <string name="voice_input_settings_animate_bubble_subtitle">Display a bubble that reacts to speech</string>
     <string name="voice_input_settings_change_models">Models</string>
     <string name="voice_input_settings_change_models_subtitle">To change the models, visit Languages &amp; Models menu</string>
+
+    <!-- Custom (remote) Whisper API server -->
+    <string name="voice_input_custom_server_model_name">Custom server</string>
+    <string name="voice_input_settings_custom_server_title">Custom Whisper server</string>
+    <string name="voice_input_settings_custom_server_subtitle">Transcribe using a remote OpenAI-compatible Whisper API</string>
+    <string name="voice_input_settings_custom_server_description">Configure an OpenAI-compatible transcription endpoint (e.g. faster-whisper-server). Enable it per language from the Languages &amp; Models menu.</string>
+    <string name="voice_input_settings_custom_server_cleartext_warning">Warning: when using an http:// address, your audio is sent unencrypted. Prefer https:// when possible.</string>
+    <string name="voice_input_settings_custom_server_url">Server URL</string>
+    <string name="voice_input_settings_custom_server_url_placeholder">http://192.168.1.10:8000</string>
+    <string name="voice_input_settings_custom_server_api_key">API key (optional)</string>
+    <string name="voice_input_settings_custom_server_api_key_placeholder">Bearer token</string>
+    <string name="voice_input_settings_show_api_key">Show API key</string>
+    <string name="voice_input_settings_hide_api_key">Hide API key</string>
+    <string name="voice_input_settings_custom_server_model">Model (optional)</string>
+    <string name="voice_input_settings_custom_server_model_placeholder">Leave blank for server default</string>
+    <string name="voice_input_settings_custom_server_test">Test connection</string>
+    <string name="voice_input_settings_custom_server_testing">Testing…</string>
 
     <!-- Prediction menu -->
     <string name="prediction_settings_title">Text Prediction</string>

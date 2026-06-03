@@ -22,12 +22,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.contentColorFor
@@ -44,8 +46,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.runBlocking
@@ -53,6 +57,7 @@ import org.futo.inputmethod.latin.MultilingualBucketSetting
 import org.futo.inputmethod.latin.R
 import org.futo.inputmethod.latin.Subtypes
 import org.futo.inputmethod.latin.SubtypesSetting
+import org.futo.inputmethod.latin.uix.CUSTOM_WHISPER_SERVER_URL
 import org.futo.inputmethod.latin.uix.FileKind
 import org.futo.inputmethod.latin.uix.ResourceHelper
 import org.futo.inputmethod.latin.uix.getSetting
@@ -442,7 +447,6 @@ fun ConfirmResourceActionDialog(
                     } else {
                         Text(stringResource(R.string.language_settings_resource_remove_button))
                     }
-
                 }
             } else {
                 TextButton(onClick = { onExplore() }) {
@@ -451,6 +455,114 @@ fun ConfirmResourceActionDialog(
             }
         }
     )
+}
+
+/** The voice-input backend currently selected for a language. */
+enum class VoiceBackend { None, LocalFile, RemoteServer }
+
+/**
+ * Dedicated voice-input model picker. Unlike [ConfirmResourceActionDialog] (which is file-centric
+ * and only offers two actions), this presents 3+ mutually-exclusive choices as a vertically
+ * stacked, full-width list — the Material 3 layout for dialogs whose actions don't fit on one row —
+ * and shows text/actions appropriate to the current backend (none / local file / custom server).
+ */
+@Composable
+fun VoiceInputModelActionDialog(
+    onDismissRequest: () -> Unit,
+    backend: VoiceBackend,
+    hasBuiltInFallback: Boolean,
+    locale: Locale,
+    onImport: () -> Unit,
+    onExplore: () -> Unit,
+    onUseCustomServer: () -> Unit,
+    onConfigureServer: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    val bodyText = when (backend) {
+        VoiceBackend.None ->
+            stringResource(R.string.language_settings_resource_voice_input_none)
+        VoiceBackend.LocalFile ->
+            stringResource(R.string.language_settings_resource_voice_input_selected) +
+                if (!hasBuiltInFallback) {
+                    "\n\n" + stringResource(R.string.language_settings_resource_voice_input_selected_no_default_warning)
+                } else ""
+        VoiceBackend.RemoteServer ->
+            stringResource(R.string.language_settings_resource_voice_input_remote_selected) +
+                if (!hasBuiltInFallback) {
+                    "\n\n" + stringResource(R.string.language_settings_resource_voice_input_selected_no_default_warning)
+                } else ""
+    }
+
+    Dialog(onDismissRequest = onDismissRequest) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Icon(
+                    painterResource(id = FileKind.VoiceInput.icon()),
+                    contentDescription = null,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = "${locale.displayLanguage} - ${FileKind.VoiceInput.kindTitle(LocalResources.current)}",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+                Spacer(Modifier.height(16.dp))
+                Text(text = bodyText, style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(24.dp))
+
+                when (backend) {
+                    VoiceBackend.None -> {
+                        DialogActionButton(R.string.language_settings_resource_import_file_button, onClick = onImport)
+                        DialogActionButton(R.string.language_settings_resource_use_custom_server_button, onClick = onUseCustomServer)
+                        DialogActionButton(R.string.language_settings_resource_explore_online_button, onClick = onExplore)
+                    }
+                    VoiceBackend.LocalFile -> {
+                        DialogActionButton(R.string.language_settings_resource_replace_button, onClick = onImport)
+                        DialogActionButton(R.string.language_settings_resource_use_custom_server_button, onClick = onUseCustomServer)
+                        DialogActionButton(
+                            if (hasBuiltInFallback) R.string.language_settings_resource_revert_to_default_button
+                            else R.string.language_settings_resource_remove_button,
+                            destructive = true, onClick = onRemove
+                        )
+                    }
+                    VoiceBackend.RemoteServer -> {
+                        DialogActionButton(R.string.language_settings_resource_configure_server_button, onClick = onConfigureServer)
+                        DialogActionButton(R.string.language_settings_resource_use_local_model_button, onClick = onImport)
+                        DialogActionButton(R.string.language_settings_resource_disable_custom_server_button, destructive = true, onClick = onRemove)
+                    }
+                }
+
+                DialogActionButton(R.string.language_settings_resource_cancel_button, onClick = onDismissRequest)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DialogActionButton(
+    textRes: Int,
+    destructive: Boolean = false,
+    onClick: () -> Unit
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = if (destructive) {
+            ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+        } else {
+            ButtonDefaults.textButtonColors()
+        }
+    ) {
+        Text(
+            stringResource(textRes),
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Start
+        )
+    }
 }
 
 
@@ -581,31 +693,74 @@ fun LanguagesScreen(navController: NavHostController = rememberNavController()) 
 
     if (deleteDialogInfo.value != null) {
         val info = deleteDialogInfo.value!!
-        ConfirmResourceActionDialog(
-            onDismissRequest = { deleteDialogInfo.value = null },
-            onExplore = {
-                context.openURI(info.kind.getAddonUrlForLocale(info.locale), true)
-                deleteDialogInfo.value = null
-            },
-            onDelete = {
-                ResourceHelper.deleteResourceForLanguage(context, info.kind, info.locale)
-                deleteDialogInfo.value = null
-            },
-            onImport = {
-                openModelImporter(context)
-                deleteDialogInfo.value = null
-            },
-
-            resourceKind = info.kind,
-            locale = info.locale,
-            isCurrentlySet = runBlocking {
-                ResourceHelper.findFileForKind(
-                    context,
-                    info.locale,
-                    info.kind
-                )?.exists() == true
+        if (info.kind == FileKind.VoiceInput) {
+            val urlSet = context.getSetting(CUSTOM_WHISPER_SERVER_URL).isNotBlank()
+            val remoteEnabled = ResourceHelper.isRemoteVoiceInputEnabledForLocale(context, info.locale)
+            val fileSet = runBlocking {
+                ResourceHelper.findFileForKind(context, info.locale, FileKind.VoiceInput)?.exists() == true
             }
-        )
+            val backend = when {
+                remoteEnabled && urlSet -> VoiceBackend.RemoteServer
+                fileSet -> VoiceBackend.LocalFile
+                else -> VoiceBackend.None
+            }
+            VoiceInputModelActionDialog(
+                onDismissRequest = { deleteDialogInfo.value = null },
+                backend = backend,
+                hasBuiltInFallback = ResourceHelper.BuiltInVoiceInputFallbacks[info.locale.language] != null,
+                locale = info.locale,
+                onImport = {
+                    openModelImporter(context)
+                    deleteDialogInfo.value = null
+                },
+                onExplore = {
+                    context.openURI(info.kind.getAddonUrlForLocale(info.locale), true)
+                    deleteDialogInfo.value = null
+                },
+                onUseCustomServer = {
+                    ResourceHelper.setRemoteVoiceInputForLocale(context, info.locale, true)
+                    deleteDialogInfo.value = null
+                    // Enabling without a server configured would be a no-op, so guide the user there.
+                    if (context.getSetting(CUSTOM_WHISPER_SERVER_URL).isBlank()) {
+                        navController.navigate("customWhisperServer")
+                    }
+                },
+                onConfigureServer = {
+                    deleteDialogInfo.value = null
+                    navController.navigate("customWhisperServer")
+                },
+                onRemove = {
+                    ResourceHelper.deleteResourceForLanguage(context, info.kind, info.locale)
+                    deleteDialogInfo.value = null
+                },
+            )
+        } else {
+            ConfirmResourceActionDialog(
+                onDismissRequest = { deleteDialogInfo.value = null },
+                onExplore = {
+                    context.openURI(info.kind.getAddonUrlForLocale(info.locale), true)
+                    deleteDialogInfo.value = null
+                },
+                onDelete = {
+                    ResourceHelper.deleteResourceForLanguage(context, info.kind, info.locale)
+                    deleteDialogInfo.value = null
+                },
+                onImport = {
+                    openModelImporter(context)
+                    deleteDialogInfo.value = null
+                },
+
+                resourceKind = info.kind,
+                locale = info.locale,
+                isCurrentlySet = runBlocking {
+                    ResourceHelper.findFileForKind(
+                        context,
+                        info.locale,
+                        info.kind
+                    )?.exists() == true
+                }
+            )
+        }
     } else if (languageDeleteInfo.value != null) {
         val info = languageDeleteInfo.value!!
         ConfirmDeleteLanguageDialog(

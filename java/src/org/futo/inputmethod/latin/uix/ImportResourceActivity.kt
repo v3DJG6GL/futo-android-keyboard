@@ -74,8 +74,10 @@ import org.futo.inputmethod.latin.utils.ZipFileHelper
 import org.futo.inputmethod.latin.xlm.ModelPaths
 import org.futo.inputmethod.updates.openURI
 import org.futo.voiceinput.shared.BUILTIN_ENGLISH_MODEL
+import org.futo.voiceinput.shared.remote.RemoteWhisperConfig
 import org.futo.voiceinput.shared.types.ModelFileFile
 import org.futo.voiceinput.shared.types.ModelLoader
+import org.futo.voiceinput.shared.types.ModelRemoteApi
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStream
@@ -568,9 +570,33 @@ object ResourceHelper {
         return file
     }
 
+    // True if the user opted this locale into the custom (remote) Whisper server. Mirrors the
+    // multi-variant key lookup used by [findKeyForLocaleAndKind] so reads match the UI's writes.
+    fun isRemoteVoiceInputEnabledForLocale(context: Context, locale: Locale): Boolean {
+        val keysToTry = listOf(locale.toString(), locale.language)
+        return keysToTry.any { context.getSetting(voiceInputRemoteKeyFor(it)) }
+    }
+
     fun tryFindingVoiceInputModelForLocale(context: Context, locale: Locale): ModelLoader? {
+        // 1. Per-language opt-in to the custom remote server (requires a configured URL).
+        if (isRemoteVoiceInputEnabledForLocale(context, locale)) {
+            val url = context.getSetting(CUSTOM_WHISPER_SERVER_URL)
+            if (url.isNotBlank()) {
+                return ModelRemoteApi(
+                    name = R.string.voice_input_custom_server_model_name,
+                    config = RemoteWhisperConfig(
+                        baseUrl = url,
+                        apiKey = context.getSetting(CUSTOM_WHISPER_API_KEY).ifBlank { null },
+                        model = context.getSetting(CUSTOM_WHISPER_MODEL).ifBlank { null }
+                    ),
+                    forcedLanguage = locale.language.ifBlank { null }
+                )
+            }
+        }
+
+        // 2. An imported/downloaded on-device model file.
         val file = runBlocking { findFileForKind(context, locale, FileKind.VoiceInput) }
-            ?: return BuiltInVoiceInputFallbacks[locale.language]
+            ?: return BuiltInVoiceInputFallbacks[locale.language] // 3. Built-in fallback.
 
         return ModelFileFile(R.string.settings_external_model_name, file)
     }
@@ -599,6 +625,21 @@ object ResourceHelper {
         runBlocking { context.setSetting(kind.preferenceKeyFor(locale.toString()), "") }
         runBlocking { context.setSetting(kind.namePreferenceKeyFor(locale.toString()), "") }
 
+        // Removing/reverting a voice input model also turns off the custom remote server opt-in.
+        if(kind == FileKind.VoiceInput) {
+            runBlocking { context.setSetting(voiceInputRemoteKeyFor(locale.toString()), false) }
+            runBlocking { context.setSetting(voiceInputRemoteKeyFor(locale.language), false) }
+        }
+
+        GlobalIMEMessage.tryEmit(IMEMessage.ReloadResources)
+    }
+
+    // Opt this locale into (or out of) the custom remote Whisper server.
+    fun setRemoteVoiceInputForLocale(context: Context, locale: Locale, enabled: Boolean) {
+        runBlocking { context.setSetting(voiceInputRemoteKeyFor(locale.toString()), enabled) }
+        if(!enabled) {
+            runBlocking { context.setSetting(voiceInputRemoteKeyFor(locale.language), false) }
+        }
         GlobalIMEMessage.tryEmit(IMEMessage.ReloadResources)
     }
 }
