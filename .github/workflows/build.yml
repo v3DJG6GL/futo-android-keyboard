@@ -1,0 +1,63 @@
+name: Build & Unit Tests
+
+# Builds the debug APK, runs lint and JVM unit tests. The debug variant is signed with the
+# auto-generated debug keystore, so no signing secrets are required.
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0   # full history so `git describe` can derive the version
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Provision Android SDK (NDK, CMake, platform, build-tools)
+        run: ./.ci/setup-android-sdk.sh
+
+      - name: Lint (unstable debug)
+        run: ./gradlew lintUnstableDebug --stacktrace
+
+      - name: Unit tests (unstable debug)
+        run: ./gradlew testUnstableDebugUnitTest --stacktrace
+
+      - name: Assemble unstable debug APK
+        run: ./gradlew assembleUnstableDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: latinime-unstable-debug
+          path: build/outputs/apk/unstable/debug/*.apk
+          if-no-files-found: warn
+
+      - name: Upload lint & test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            build/reports/lint-results-*.html
+            build/reports/tests/**
+          if-no-files-found: ignore
