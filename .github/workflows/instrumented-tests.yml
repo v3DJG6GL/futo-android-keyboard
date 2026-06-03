@@ -28,14 +28,18 @@ jobs:
 
       - name: Init submodules (with retry/backoff)
         run: |
-          for i in 1 2 3 4 5; do
-            if git submodule update --init --recursive --jobs 4; then
+          tries=6
+          for i in $(seq 1 $tries); do
+            if git submodule update --init --recursive --force --jobs 4; then
               echo "Submodules initialized."; exit 0
             fi
-            echo "::warning::Submodule init attempt $i failed (likely huggingface 429) — retrying in $((i*20))s"
-            sleep $((i * 20))
+            if [ "$i" -lt "$tries" ]; then
+              wait=$((i * 30))
+              echo "::warning::Submodule init attempt $i/$tries failed (likely huggingface 429) — retrying in ${wait}s"
+              sleep "$wait"
+            fi
           done
-          echo "::error::Submodule init failed after 5 attempts"; exit 1
+          echo "::error::Submodule init failed after $tries attempts"; exit 1
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
