@@ -168,7 +168,9 @@ android {
         versionName getVersionName()
         versionCode getVersionCode()
 
-        applicationId 'org.futo.inputmethod.latin'
+        // Fork install identity — distinct from official FUTO ids so this installs alongside them.
+        // Code namespace stays org.futo.inputmethod.latin (see `namespace` above).
+        applicationId 'io.github.v3djg6gl.futo.keyboard.remotewhisper'
         testApplicationId 'org.futo.inputmethod.latin.tests'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = false
