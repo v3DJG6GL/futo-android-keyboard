@@ -1,9 +1,10 @@
 # FUTO Keyboard (Remote-Whisper) — modified fork
-
-> **Modification notice (per the [FUTO Source First License 1.1](LICENSE.md), §Notices):**
+> [!NOTE]
+> **Modification notice** _(per the [FUTO Source First License 1.1](LICENSE.md), §Notices)_:
 > This is a **modified version** of [FUTO Keyboard](https://github.com/futo-org/android-keyboard).
-> It adds an optional **custom remote Whisper API** voice-input backend (send audio to a
-> user-configured OpenAI-compatible server). It is an **unofficial fork**, **not affiliated with or
+> It adds a **configurable custom remote Whisper API endpoint**, enabling you
+> to use your **self-hosted**, OpenAI-compatible **Whisper server** for transcriptions.
+> This is an **unofficial fork**, **not affiliated with or
 > endorsed by FUTO Holdings, Inc.**, and installs under a separate package id
 > (`io.github.v3djg6gl.futo.keyboard.remotewhisper`) so it coexists with the official app.
 > "FUTO" is a trademark of FUTO Holdings, Inc.; the license grants no trademark rights and any such
