@@ -174,6 +174,15 @@ jobs:
             echo "::warning::KEYSTORE_FILE secret not set — APK will be signed with the shared debug key."
           fi
 
+      # build.gradle derives versionName/versionCode from git, but its versionCode fallback runs
+      # `git rev-list --count master`, which doesn't exist when checked out at a tag (detached HEAD)
+      # — that yields versionCode -1 and AGP aborts. Provide both explicitly from the tag.
+      - name: Derive app version
+        run: |
+          echo "VERSION_NAME=${{ steps.ref.outputs.version }}" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
+          echo "BRANCH_NAME=master" >> "$GITHUB_ENV"
+
       - name: Build stable release APK
         run: ./gradlew assembleStableRelease --stacktrace
 
