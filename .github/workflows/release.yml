@@ -1,38 +1,123 @@
 name: Release
 
-# Builds the signed, minified `stable` release APK and attaches it to a GitHub Release.
-# Trigger by pushing a tag like `v1.2.3` (or run manually for a test build).
+# Two entry points:
+#   1. Manual (Actions tab -> Release -> Run workflow): pick a bump type (patch/minor/major) and
+#      the workflow reads the latest v* git tag and computes the next version automatically. Or set
+#      the "version" field to pin an exact version (e.g. 0.1.0 or 1.0.0-rc.1); then "bump" is ignored.
+#      The prepare-tag job creates and pushes the tag, then the build+release runs.
+#   2. Tag push (git tag v1.2.3 && git push origin v1.2.3): skips prepare-tag, builds and releases
+#      straight from the pushed tag.
 #
-# Required repository secrets (Settings → Secrets and variables → Actions) for a properly signed
-# build — without them the APK falls back to the shared debug key (installable, but debug-signed):
-#   KEYSTORE_FILE      base64 of your release keystore (.jks):  base64 -w0 key.jks
-#   KEYSTORE_PASSWORD  keystore (store) password
-#   KEY_PASSWORD       key password
-#   KEYSTORE_ALIAS     key alias
+# The released APK is the signed `stable` build. Signing uses repo secrets (KEYSTORE_FILE/
+# KEYSTORE_PASSWORD/KEY_PASSWORD/KEYSTORE_ALIAS); without them it falls back to the shared debug key.
 
 on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Bump type (used when "version" is blank)'
+        required: true
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+      version:
+        description: 'Explicit version override (semver, no v prefix, e.g. 0.1.0). Blank = auto-bump.'
+        required: false
+        type: string
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
 
 permissions:
-  contents: write   # create/upload GitHub Release assets
+  contents: write   # create/push tags and GitHub Release assets
 
+# One release at a time; don't cancel a half-finished release.
 concurrency:
-  group: release-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
-  release:
+  prepare-tag:
+    name: Prepare tag (manual)
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.compute.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # need all tags to compute the next version
+          # GITHUB_TOKEN pushes do NOT re-trigger workflows, so the tag push below won't spawn a
+          # second Release run.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute next version and tag
+        id: compute
+        run: |
+          v="${{ inputs.version }}"
+          v="${v#v}"
+          if [ -z "$v" ]; then
+            latest=$(git tag -l 'v*' --sort=-v:refname | head -n1)
+            base="${latest#v}"
+            [ -z "$base" ] && base="0.0.0"
+            if [[ ! "$base" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+              echo "::error::Latest tag '$latest' is not parseable semver"; exit 1
+            fi
+            maj="${BASH_REMATCH[1]}"; min="${BASH_REMATCH[2]}"; pat="${BASH_REMATCH[3]}"
+            case "${{ inputs.bump }}" in
+              major) maj=$((maj + 1)); min=0; pat=0 ;;
+              minor) min=$((min + 1)); pat=0 ;;
+              patch) pat=$((pat + 1)) ;;
+              *) echo "::error::Unknown bump '${{ inputs.bump }}'"; exit 1 ;;
+            esac
+            v="${maj}.${min}.${pat}"
+            echo "Auto-bumped ${latest:-<none>} -> ${v} (${{ inputs.bump }})"
+          fi
+          if [[ ! "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "::error::Version '$v' is not valid semver (X.Y.Z or X.Y.Z-pre)"; exit 1
+          fi
+          tag="v$v"
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "::error::Tag $tag already exists"; exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        run: |
+          tag="${{ steps.compute.outputs.tag }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "Release $tag"
+          git push origin "$tag"
+
+  release:
+    name: Build & publish release
+    runs-on: ubuntu-latest
+    needs: [prepare-tag]
+    # Run for manual (prepare-tag succeeded) and tag-push (prepare-tag skipped).
+    if: always() && (needs.prepare-tag.result == 'success' || needs.prepare-tag.result == 'skipped')
     timeout-minutes: 60
     steps:
-      - name: Checkout
+      - name: Resolve release tag
+        id: ref
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ needs.prepare-tag.outputs.tag }}"
+          else
+            tag="${{ github.ref_name }}"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout release tag
         uses: actions/checkout@v4
         with:
-          submodules: false   # initialized manually below (huggingface rate-limits clones)
+          ref: ${{ steps.ref.outputs.tag }}
           fetch-depth: 0       # full history + tags so `git describe` derives the version
+          submodules: false    # initialized manually below (huggingface rate-limits clones)
 
       - name: Init submodules (with retry/backoff)
         run: |
@@ -80,21 +165,26 @@ jobs:
       - name: Build stable release APK
         run: ./gradlew assembleStableRelease --stacktrace
 
-      - name: Locate APK
+      - name: Stage APK
         id: apk
-        run: echo "path=$(ls build/outputs/apk/stable/release/*.apk | head -n1)" >> "$GITHUB_OUTPUT"
+        run: |
+          src=$(ls build/outputs/apk/stable/release/*.apk | head -n1)
+          out="futo-keyboard-remotewhisper-${{ steps.ref.outputs.tag }}.apk"
+          cp "$src" "$out"
+          echo "path=$out" >> "$GITHUB_OUTPUT"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: stable-release-apk
-          path: build/outputs/apk/stable/release/*.apk
+          name: ${{ steps.apk.outputs.path }}
+          path: ${{ steps.apk.outputs.path }}
           if-no-files-found: error
 
-      - name: Attach APK to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.ref.outputs.tag }}
+          name: ${{ steps.ref.outputs.tag }}
           files: ${{ steps.apk.outputs.path }}
           fail_on_unmatched_files: true
           generate_release_notes: true
